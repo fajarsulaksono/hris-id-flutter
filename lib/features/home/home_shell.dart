@@ -5,8 +5,10 @@ import '../attendance/presentation/attendance_screen.dart';
 import '../auth/application/auth_controller.dart';
 import '../dashboard/presentation/dashboard_screen.dart';
 import '../leave/presentation/leave_screen.dart';
+import '../overtime/presentation/overtime_screen.dart';
 import '../payroll/presentation/payroll_screen.dart';
 import '../profile/presentation/profile_screen.dart';
+import '../notifications/presentation/notification_screen.dart';
 
 /// Navigator utama untuk pengguna yang sudah login.
 ///
@@ -30,14 +32,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     final showAttendance =
         canShow('view_attendance') || canShow('view_my_attendance');
-    final showLeave = canShow('view_leave');
+    final showLeave = canShow('view_my_leave');
+    final showOvertime = canShow('view_my_overtime');
     final showPayroll = canShow('view_payroll');
+    final showNotifications = canShow('view_notification');
 
     final pages = <Widget>[
       const DashboardScreen(),
       if (showAttendance) const AttendanceScreen(),
       if (showLeave) const LeaveScreen(),
+      if (showOvertime) const OvertimeScreen(),
       if (showPayroll) const PayrollScreen(),
+      if (showNotifications) const NotificationScreen(),
       const ProfileScreen(),
     ];
 
@@ -59,11 +65,23 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           selectedIcon: Icon(Icons.event_available),
           label: 'Cuti',
         ),
+      if (showOvertime)
+        const NavigationDestination(
+          icon: Icon(Icons.schedule_outlined),
+          selectedIcon: Icon(Icons.schedule),
+          label: 'Lembur',
+        ),
       if (showPayroll)
         const NavigationDestination(
           icon: Icon(Icons.account_balance_wallet_outlined),
           selectedIcon: Icon(Icons.account_balance_wallet),
           label: 'Gaji',
+        ),
+      if (showNotifications)
+        const NavigationDestination(
+          icon: Icon(Icons.notifications_outlined),
+          selectedIcon: Icon(Icons.notifications),
+          label: 'Notifikasi',
         ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),
@@ -78,7 +96,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: IndexedStack(index: safeIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: safeIndex,
-        onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+        onDestinationSelected: (index) =>
+            setState(() => _selectedIndex = index),
         destinations: destinations,
       ),
     );

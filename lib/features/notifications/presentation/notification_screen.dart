@@ -2,45 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_exception.dart';
-import '../../../shared/utils/rupiah.dart';
-import '../application/payroll_controller.dart';
-import '../data/payroll.dart';
-import 'payroll_detail_screen.dart';
+import '../application/notification_controller.dart';
+import '../data/notification.dart';
 
-class PayrollScreen extends ConsumerWidget {
-  const PayrollScreen({super.key});
+class NotificationScreen extends ConsumerWidget {
+  const NotificationScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final payslips = ref.watch(payrollControllerProvider);
+    final notifications = ref.watch(notificationControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Gaji')),
-      body: payslips.when(
+      appBar: AppBar(title: const Text('Notifikasi')),
+      body: notifications.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorNotice(
           message: error is ApiException
               ? error.message
-              : 'Gagal memuat payslip.',
-          onRetry: () => ref.read(payrollControllerProvider.notifier).refresh(),
+              : 'Gagal memuat notifikasi.',
+          onRetry: () => ref.read(notificationControllerProvider.notifier).refresh(),
         ),
         data: (list) => RefreshIndicator(
           onRefresh: () =>
-              ref.read(payrollControllerProvider.notifier).refresh(),
+              ref.read(notificationControllerProvider.notifier).refresh(),
           child: list.isEmpty
               ? const _EmptyNotice()
               : ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
-                  itemBuilder: (context, index) => _PayrollTile(
-                    payroll: list[index],
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            PayrollDetailScreen(payroll: list[index]),
-                      ),
-                    ),
+                  itemBuilder: (context, index) => _NotificationTile(
+                    notification: list[index],
+                    onTap: () => ref
+                        .read(notificationControllerProvider.notifier)
+                        .markRead(list[index]),
                   ),
                 ),
         ),
@@ -49,32 +44,29 @@ class PayrollScreen extends ConsumerWidget {
   }
 }
 
-class _PayrollTile extends StatelessWidget {
-  const _PayrollTile({required this.payroll, required this.onTap});
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({required this.notification, required this.onTap});
 
-  final Payroll payroll;
+  final AppNotification notification;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: notification.isRead
+          ? null
+          : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
       child: ListTile(
-        leading: const CircleAvatar(
-          child: Icon(Icons.account_balance_wallet_outlined),
+        leading: Icon(
+          notification.type == 'payroll_processed'
+              ? Icons.account_balance_wallet_outlined
+              : Icons.notifications_outlined,
         ),
-        title: Text(payroll.period?.label ?? 'Periode tidak tersedia'),
-        subtitle: Text('${payroll.details.length} komponen gaji'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              rupiah(payroll.takeHomePay),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
+        title: Text(notification.title),
+        subtitle: Text(notification.message),
+        trailing: notification.isRead
+            ? null
+            : const Icon(Icons.circle, size: 10),
         onTap: onTap,
       ),
     );
@@ -91,12 +83,7 @@ class _EmptyNotice extends StatelessWidget {
       children: const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 100),
-          child: Center(
-            child: Text(
-              'Belum ada payslip.',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
+          child: Center(child: Text('Belum ada notifikasi.')),
         ),
       ],
     );

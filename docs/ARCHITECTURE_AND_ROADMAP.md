@@ -16,9 +16,9 @@ described up front so each phase has a clear contract with `hris-id-laravel`
 | Navigation | ✅ Done | `HomeShell` dengan menu **role-aware** (ability dari `/auth/me`); 5 tab |
 | Biometric lock | ✅ Done (Fase 1) | `local_auth` + preferensi di secure storage + `BiometricGateScreen` |
 | Attendance (Clock In/Out) | ✅ Done (Fase 2) | `attendanceController` (`AsyncNotifier`), model `Attendance`, `AttendanceRepository`, layar check-in/out + ringkasan bulan; backend attendances kini `mutable` + self-service |
-| Testing | ✅ Auth + Attendance covered | 11 widget test (auth + role-aware menu + clock-in/out, offline, gagal muat); other features pending |
+| Testing | ✅ Auth + Attendance + Leave + Overtime + Payslip + Notifications covered | 17 Flutter test plus Laravel notification/API coverage; hardening and release tests pending |
 | API layer | ✅ Done | `dioProvider` + `AuthInterceptor` (Bearer, 401 cleanup) + `ApiException` mapping |
-| Configuration | ✅ Done | `API_BASE_URL` via `--dart-define`, default `localhost:9100/api/v1` |
+| Configuration | ✅ Done | `API_BASE_URL` via `--dart-define`, default `localhost:9100/api/v1`; Firebase/release secrets kept outside Git |
 
 ---
 
@@ -97,8 +97,9 @@ Before Phases 2–4 can be fully implemented, the backend must provide:
 1. **Mutation endpoints** for `attendances`, `leaves`, `overtimes` (`mutable: true` + rules in
    `app/Support/ApiModules.php`); the approval observer must also run on API-created records.
 2. **Token expiry** (`config/sanctum.php`) + `auth/refresh`; automatic replacement on 401.
-3. **Approval workflow** for leave/overtime (status `approved_by_id`/approval) — a prerequisite for
-   Phase 3 and correlated with the High-priority item in the web `docs/RECOMMENDATIONS.md`.
+3. **Approval workflow** for leave/overtime (status `approved_by_id`/approval) ✅ implemented in the
+  Laravel API — a prerequisite for Phase 3 and correlated with the High-priority item in the web
+  `docs/RECOMMENDATIONS.md`.
 4. **Push FCM**: a `device_tokens` table + registration endpoint.
 
 > Contract check: make sure backend effort is prioritized in parallel with Phases 1–2.
@@ -160,17 +161,18 @@ no network (offline) → clear indicator, no crash.
 
 **Goal:** submit requests without having to go to the web.
 
-- **Backend**: `mutable` `leaves`/`overtimes`; approval workflow (status & `approved_by`).
-- Request form: type (annual/special leave; overtime), date, start–end time, notes.
-- Provide date options from `Reason`/holidays (related API available).
-- Request history with status: *Pending / Approved / Rejected*.
-- Refetch the list when returning from the form (e.g. `ref.invalidate` after submit).
+- **Backend** ✅: `mutable` `leaves`/`overtimes`; approval workflow (status & `approved_by`).
+- Request form ✅: leave reason, amount, date, overtime start–end time, and notes.
+- Leave reason options ✅ loaded from the `Reason` API.
+- Request history ✅ with status: *Pending / Approved / Rejected*.
+- Refetch the list ✅ after a successful submit via the Riverpod controller.
 
-**Deliverables:** `leaveController`, `overtimeController`, `Leave`/`Overtime` models, form screen +
-history, unit test for the submit cycle.
+**Deliverables:** ✅ `leaveController`, `overtimeController`, `Leave`/`Overtime` models, form screens,
+history, and unit tests for the submit cycle.
 
-**Acceptance criteria:** a successful request → appears in history as Pending; auto-approved
-overtime → status changes (auto refresh); client-side date validation (no past dates).
+**Acceptance criteria:** ✅ a successful request appears in history as Pending; auto-approved
+overtime status is rendered from the API response; client-side date validation rejects past dates;
+overtime validation rejects an end time that is not after the start time.
 
 ---
 
@@ -178,48 +180,65 @@ overtime → status changes (auto refresh); client-side date validation (no past
 
 **Goal:** employees view their digital payslip.
 
-- **Backend**: ensure `payrolls` + `payroll-details` access is owner-scoped (`employee_id` from the
-  token) and values are already decrypted (as done by the web Resource).
-- Period list → detail with take-home pay + compensation/allowance-deduction breakdown.
-- Rupiah formatting via `shared/utils/rupiah.dart`.
-- **Policy**: never cache payroll payloads locally; render on a per-request basis only.
+- **Backend** ✅: `payrolls` access is owner-scoped by `employee_id` from the token and values are
+  already decrypted by the API Resource.
+- Period list → detail ✅ with take-home pay and compensation/allowance-deduction breakdown.
+- Rupiah formatting ✅ via `shared/utils/rupiah.dart`.
+- **Policy** ✅: payroll payloads are never cached locally; they are fetched per request only.
 
-**Deliverables:** `payrollController`, `Payroll`/`PayrollDetail` models, list + detail screens,
+**Deliverables:** ✅ `payrollController`, `Payroll`/`PayrollDetail` models, list + detail screens,
 formatting test.
 
-**Acceptance criteria:** only the user's own periods appear; take-home pay and breakdown are
+**Acceptance criteria:** ✅ only the user's own payrolls appear; take-home pay and breakdown are
 consistent; numbers formatted as `Rp5.000.000`.
 
 ---
 
 ## Phase 5 — Notifications
 
-- In-app: a tab/page with the notification history (the server exposes the endpoint — item 4 in the
-  backend prerequisites above).
-- FCM push: register `device_token` on login, unregister on logout; existing email notifications gain
-  a push channel without changing the email logic (web).
-- Deep link: tapping a notification opens the related screen (payslip/leave).
+- In-app ✅: notification history tab backed by `GET /api/v1/notifications`, with mark-as-read.
+- FCM push ✅: register the device token after login/session restore, unregister on logout; existing
+  overtime approval and payroll notifications retain email/database delivery and also use the FCM
+  channel when Firebase credentials are configured.
+- FCM payload ✅ includes notification type and related record ID for future deep-link routing.
+- Deep link: payload contracts are ready (`type` + `related_id`); routing to payslip/leave detail is
+  still pending because those detail routes need to be added to the Flutter navigator.
 
-**Deliverables:** notification provider, device register/unregister, history screen, tap handling.
+### Firebase setup required for production
 
-**Acceptance criteria:** the user receives a push when overtime is approved; the device token is
-registered once; tapping a push opens the relevant screen.
+- Flutter: configure the Android/iOS apps with Firebase Console files so `Firebase.initializeApp()`
+  can resolve native options.
+- Laravel: set `FIREBASE_CREDENTIALS` to a Firebase service-account JSON path. Never commit that file.
+- Backend device endpoints: `POST /api/v1/auth/device` and `DELETE /api/v1/auth/device/{id}`.
+
+**Deliverables:** ✅ notification provider, device register/unregister, history screen, and FCM
+payload handling. Deep-link navigation and release Firebase credentials remain deployment work.
+
+**Acceptance criteria:** ✅ device tokens are registered once per token; notification history is
+available and markable as read; FCM sends overtime/payroll payloads when credentials are configured.
+Deep-link screen navigation remains a follow-up item.
 
 ---
 
 ## Phase 6 — Hardening & Release
 
-- **Offline/minimal-network behavior**: no crash without a connection; clear messages + retry.
-- **Security**: `flutter_secure_storage` (done), never log tokens, keep back-end validation on the
-  web, minify & obfuscate the release (`--obfuscate --split-debug-info`), certificates & iOS ATS.
-- **Testing**: unit tests for repositories/controllers (mocked Dio), key widget tests, ≥ 60% coverage
-  target; `flutter test` green in CI.
-- **CI**: GitHub Actions (analyze, test, build debug APK); fvm used in the pipeline.
-- **Build flavors** dev/staging/prod + `--dart-define` per environment (no constant editing).
-- **Store**: signed release (Keystore), versioning, screenshots, release checklist.
+- **Offline/minimal-network behavior** ✅: no crash without a connection; feature screens expose
+  clear messages and retry actions.
+- **Security** ✅: `flutter_secure_storage`, no token logging, backend validation, Firebase/service
+  account and signing secrets ignored; release command documents `--obfuscate` and symbols.
+- **Testing**: controller/widget coverage exists for all implemented features; `flutter test` and
+  coverage run in CI. Current line coverage is 45.51%; the ≥60% target and device-level tests remain
+  release checks.
+- **CI** ✅: GitHub Actions runs FVM setup, analyze, test with coverage, and debug APK build.
+- **Build environments** ✅: dev/staging/prod endpoints use `--dart-define` without source edits;
+  native store flavors remain optional deployment work.
+- **Store**: release signing, versioning, screenshots, and checklist are documented in
+  `docs/RELEASING.md`; signing credentials remain deployment-owned.
 
-**Acceptance criteria:** a release APK can be built from a clean check-out; the whole CI cycle is
-green; release guidance is documented (optional `docs/RELEASING.md`).
+**Acceptance criteria:** ✅ clean-checkout CI can analyze, test, collect coverage, and build a debug
+APK; release guidance is documented. Production APK/AAB signing and Firebase native files must be
+provided by the release environment. Coverage still needs to reach the ≥60% target before calling
+the hardening phase fully complete.
 
 ---
 

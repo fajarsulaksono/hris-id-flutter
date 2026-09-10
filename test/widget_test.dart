@@ -54,7 +54,10 @@ class _FakeAuthRepository extends AuthRepository {
   final ApiException? meError;
 
   @override
-  Future<AuthResult> login({required String username, required String password}) async {
+  Future<AuthResult> login({
+    required String username,
+    required String password,
+  }) async {
     final error = loginError;
     if (error != null) {
       throw error;
@@ -78,8 +81,8 @@ class _FakeAttendanceRepository extends AttendanceRepository {
     this.listError,
     this.clockInError,
     this.clockOutError,
-  })  : records = records ?? [],
-        super(Dio(BaseOptions()));
+  }) : records = records ?? [],
+       super(Dio(BaseOptions()));
 
   List<Attendance> records;
   final ApiException? listError;
@@ -94,14 +97,19 @@ class _FakeAttendanceRepository extends AttendanceRepository {
     }
 
     return records
-        .where((record) =>
-            record.attendanceDate.year == year &&
-            record.attendanceDate.month == month)
+        .where(
+          (record) =>
+              record.attendanceDate.year == year &&
+              record.attendanceDate.month == month,
+        )
         .toList();
   }
 
   @override
-  Future<Attendance> clockIn({required DateTime date, required String time}) async {
+  Future<Attendance> clockIn({
+    required DateTime date,
+    required String time,
+  }) async {
     final error = clockInError;
     if (error != null) {
       throw error;
@@ -119,7 +127,10 @@ class _FakeAttendanceRepository extends AttendanceRepository {
   }
 
   @override
-  Future<Attendance> clockOut(Attendance attendance, {required String time}) async {
+  Future<Attendance> clockOut(
+    Attendance attendance, {
+    required String time,
+  }) async {
     final error = clockOutError;
     if (error != null) {
       throw error;
@@ -132,13 +143,22 @@ class _FakeAttendanceRepository extends AttendanceRepository {
       checkIn: attendance.checkIn,
       checkOut: time,
     );
-    records = records.map((record) => record.id == updated.id ? updated : record).toList();
+    records = records
+        .map((record) => record.id == updated.id ? updated : record)
+        .toList();
 
     return updated;
   }
 }
 
-User buildUser({List<String> abilities = const ['view_attendance', 'view_leave', 'view_payroll']}) {
+User buildUser({
+  List<String> abilities = const [
+    'view_attendance',
+    'view_my_leave',
+    'view_my_overtime',
+    'view_payroll',
+  ],
+}) {
   return User(
     id: 'u-1',
     code: 'EMP001',
@@ -159,8 +179,11 @@ Widget _buildApp({
   return ProviderScope(
     overrides: [
       tokenStorageProvider.overrideWithValue(storage ?? _MemoryTokenStorage()),
-      biometricPreferenceProvider.overrideWithValue(const _FakeBiometricPreference()),
-      if (repository != null) authRepositoryProvider.overrideWithValue(repository),
+      biometricPreferenceProvider.overrideWithValue(
+        const _FakeBiometricPreference(),
+      ),
+      if (repository != null)
+        authRepositoryProvider.overrideWithValue(repository),
       if (attendanceRepository != null)
         attendanceRepositoryProvider.overrideWithValue(attendanceRepository),
     ],
@@ -168,9 +191,19 @@ Widget _buildApp({
   );
 }
 
-Future<void> submitLogin(WidgetTester tester, String username, String password) async {
-  await tester.enterText(find.widgetWithText(TextFormField, 'Username'), username);
-  await tester.enterText(find.widgetWithText(TextFormField, 'Password'), password);
+Future<void> submitLogin(
+  WidgetTester tester,
+  String username,
+  String password,
+) async {
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Username'),
+    username,
+  );
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Password'),
+    password,
+  );
   await tester.tap(find.text('Masuk'));
   await tester.pumpAndSettle();
 }
@@ -187,7 +220,9 @@ void main() {
     expect(find.text('Masuk'), findsOneWidget);
   });
 
-  testWidgets('login sukses menyimpan token dan menampilkan beranda', (tester) async {
+  testWidgets('login sukses menyimpan token dan menampilkan beranda', (
+    tester,
+  ) async {
     final storage = _MemoryTokenStorage();
     const token = 'token-123';
 
@@ -207,11 +242,16 @@ void main() {
     expect(storage.stored, token);
   });
 
-  testWidgets('login gagal menampilkan pesan galat dan tetap di login', (tester) async {
+  testWidgets('login gagal menampilkan pesan galat dan tetap di login', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-_buildApp(
+      _buildApp(
         repository: _FakeAuthRepository(
-          loginError: const ApiException('Username atau password salah.', statusCode: 422),
+          loginError: const ApiException(
+            'Username atau password salah.',
+            statusCode: 422,
+          ),
         ),
       ),
     );
@@ -223,9 +263,11 @@ _buildApp(
     expect(find.text('Masuk'), findsOneWidget);
   });
 
-  testWidgets('restore sesi valid dari secure storage langsung ke beranda', (tester) async {
+  testWidgets('restore sesi valid dari secure storage langsung ke beranda', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-_buildApp(
+      _buildApp(
         storage: _MemoryTokenStorage('token-123'),
         repository: _FakeAuthRepository(user: buildUser()),
       ),
@@ -236,27 +278,32 @@ _buildApp(
     expect(find.text('Halo, Budi Santoso 👋'), findsOneWidget);
   });
 
-  testWidgets('restore sesi invalid (401) kembali ke login dan token dibersihkan', (tester) async {
-    final storage = _MemoryTokenStorage('token-expired');
+  testWidgets(
+    'restore sesi invalid (401) kembali ke login dan token dibersihkan',
+    (tester) async {
+      final storage = _MemoryTokenStorage('token-expired');
 
-    await tester.pumpWidget(
-_buildApp(
-        storage: storage,
-        repository: _FakeAuthRepository(
-          meError: const ApiException('Unauthenticated.', statusCode: 401),
+      await tester.pumpWidget(
+        _buildApp(
+          storage: storage,
+          repository: _FakeAuthRepository(
+            meError: const ApiException('Unauthenticated.', statusCode: 401),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Masuk'), findsOneWidget);
-    expect(storage.stored, isNull);
-  });
+      expect(find.text('Masuk'), findsOneWidget);
+      expect(storage.stored, isNull);
+    },
+  );
 
-  testWidgets('menu navigasi ditampilkan sesuai ability pengguna', (tester) async {
+  testWidgets('menu navigasi ditampilkan sesuai ability pengguna', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-_buildApp(
+      _buildApp(
         repository: _FakeAuthRepository(
           loginResult: const AuthResult(
             token: 'token-123',
@@ -282,9 +329,11 @@ _buildApp(
     expect(find.text('Gaji'), findsNothing);
   });
 
-  testWidgets('menu lengkap tampil saat semua ability dimiliki', (tester) async {
+  testWidgets('menu lengkap tampil saat semua ability dimiliki', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-_buildApp(
+      _buildApp(
         repository: _FakeAuthRepository(
           loginResult: AuthResult(token: 'token-123', user: buildUser()),
         ),
@@ -296,12 +345,15 @@ _buildApp(
 
     expect(find.text('Absensi'), findsOneWidget);
     expect(find.text('Cuti'), findsOneWidget);
+    expect(find.text('Lembur'), findsWidgets);
     expect(find.text('Gaji'), findsOneWidget);
   });
 
-  testWidgets('menu Absensi tampil dengan ability view_my_attendance saja', (tester) async {
+  testWidgets('menu Absensi tampil dengan ability view_my_attendance saja', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-_buildApp(
+      _buildApp(
         repository: _FakeAuthRepository(
           loginResult: const AuthResult(
             token: 'token-123',
@@ -326,7 +378,9 @@ _buildApp(
     expect(find.text('Cuti'), findsNothing);
   });
 
-  testWidgets('absensi: clock-in lalu clock-out memperbarui kartu hari ini', (tester) async {
+  testWidgets('absensi: clock-in lalu clock-out memperbarui kartu hari ini', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildApp(
         repository: _FakeAuthRepository(
@@ -358,7 +412,9 @@ _buildApp(
     expect(find.text('Pulang'), findsOneWidget);
   });
 
-  testWidgets('absensi: clock-in offline menampilkan snackbar tanpa crash', (tester) async {
+  testWidgets('absensi: clock-in offline menampilkan snackbar tanpa crash', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildApp(
         repository: _FakeAuthRepository(
@@ -382,34 +438,39 @@ _buildApp(
     expect(find.text('Absen Masuk'), findsOneWidget);
   });
 
-  testWidgets('absensi: clock-out ditolak server menampilkan snackbar dan tetap di hari itu', (tester) async {
-    await tester.pumpWidget(
-      _buildApp(
-        repository: _FakeAuthRepository(
-          loginResult: AuthResult(token: 'token-123', user: buildUser()),
+  testWidgets(
+    'absensi: clock-out ditolak server menampilkan snackbar dan tetap di hari itu',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          repository: _FakeAuthRepository(
+            loginResult: AuthResult(token: 'token-123', user: buildUser()),
+          ),
+          attendanceRepository: _FakeAttendanceRepository(
+            clockOutError: const ApiException('Check-out sudah dicatat.'),
+          ),
         ),
-        attendanceRepository: _FakeAttendanceRepository(
-          clockOutError: const ApiException('Check-out sudah dicatat.'),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await submitLogin(tester, 'budi', 'secret');
-    await tester.tap(find.text('Absensi'));
-    await tester.pumpAndSettle();
+      await submitLogin(tester, 'budi', 'secret');
+      await tester.tap(find.text('Absensi'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Absen Masuk'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Absen Masuk'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Absen Pulang'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Absen Pulang'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Check-out sudah dicatat.'), findsOneWidget);
-    expect(find.text('Absen Pulang'), findsOneWidget);
-  });
+      expect(find.text('Check-out sudah dicatat.'), findsOneWidget);
+      expect(find.text('Absen Pulang'), findsOneWidget);
+    },
+  );
 
-  testWidgets('absensi: gagal memuat menampilkan notice dan tombol coba lagi', (tester) async {
+  testWidgets('absensi: gagal memuat menampilkan notice dan tombol coba lagi', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildApp(
         repository: _FakeAuthRepository(

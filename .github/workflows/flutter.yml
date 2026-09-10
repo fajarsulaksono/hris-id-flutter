@@ -1,0 +1,49 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze-test-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Set up FVM
+        run: dart pub global activate fvm
+
+      - name: Add Dart global binaries to PATH
+        run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+
+      - name: Install pinned Flutter SDK
+        run: fvm install
+
+      - name: Install dependencies
+        run: fvm flutter pub get
+
+      - name: Analyze
+        run: fvm flutter analyze
+
+      - name: Test with coverage
+        run: fvm flutter test --coverage
+
+      - name: Verify coverage artifact
+        run: test -s coverage/lcov.info
+
+      - name: Build debug APK
+        run: >-
+          fvm flutter build apk --debug
+          --dart-define=API_BASE_URL=https://staging.example.com/api/v1
