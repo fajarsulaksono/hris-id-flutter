@@ -1,36 +1,44 @@
 # HRIS ID — Flutter
 
-Aplikasi mobile pendamping web HRIS (`hris-id-laravel`): self-service absensi, cuti/lembur,
-payslip, dan notifikasi. Mengkonsumsi REST API Laravel (Sanctum) di `/api/v1`.
+Mobile companion app for the HRIS web platform (`hris-id-laravel`): employee
+self-service for attendance, leave/overtime, payslips, and notifications. It consumes
+the Laravel REST API (Sanctum) at `/api/v1`.
 
-## Prasyarat
+## Prerequisites
 
-- Flutter SDK via [fvm](https://fvm.app) (versi dipatok di `.fvmrc`, saat ini `stable`).
+- Flutter SDK via [fvm](https://fvm.app) (version pinned in `.fvmrc`, currently `stable`).
 
 ## Setup
 
 ```bash
-fvm install       # instal versi Flutter sesuai .fvmrc
-fvm use           # aktifkan versi untuk project ini
+fvm install       # install the Flutter version declared in .fvmrc
+fvm use           # activate that version for this project
 fvm flutter pub get
 fvm flutter run
 ```
 
-Override `API_BASE_URL` saat build (dev default ke `http://localhost:9100/api/v1`):
+Override `API_BASE_URL` at build time (dev default is `http://localhost:9100/api/v1`):
 
 ```bash
 fvm flutter run --dart-define=API_BASE_URL=https://hris.example.com/api/v1
 ```
 
-## Struktur
+## Project Structure
 
 ```
 lib/
-├── core/          Dio client, token storage (secure), konfigurasi, error mapping
+├── core/          Dio client, secure token storage, configuration, error mapping
 ├── features/      auth, dashboard, attendance, leave, overtime, payroll, profile
-└── shared/        tema, widget, util format
+└── shared/        theme, widgets, formatting utilities
 ```
 
 - State management: Riverpod (`flutter_riverpod`).
-- Token Sanctum disimpan di `flutter_secure_storage`; otomatis dilampirkan via interceptor.
-- Layar ditentukan oleh status sesi (`AuthGate`): splash → login → beranda.
+- Sanctum tokens are stored in `flutter_secure_storage` and attached automatically via an
+  interceptor.
+- The initial screen is driven by the session state (`AuthGate`): splash → login → home.
+
+## Architecture & Roadmap
+
+See [docs/ARCHITECTURE_AND_ROADMAP.md](docs/ARCHITECTURE_AND_ROADMAP.md) for the app
+architecture and development phases, including the backend prerequisites required from
+`hris-id-laravel`.
