@@ -11,10 +11,12 @@ described up front so each phase has a clear contract with `hris-id-laravel`
 
 | Area | Status | Notes |
 |---|---|---|
-| Auth | ✅ Done | `AuthController` (Riverpod), login/logout/restore via Dio, token in `flutter_secure_storage` |
+| Auth | ✅ Done | login/logout/restore; session divalidasi via `/auth/me` (401 → logout); profil user tersimpan di state |
 | Structure | ✅ Done | `core/`, `features/`, `shared/` per `docs/FLUTTER_MOBILE.md` |
-| Navigation | ✅ Done | `HomeShell` with 5 tabs; other features still placeholders |
-| Testing | ⚠️ Minimal | 1 widget test (login screen); no unit tests for repositories/controllers yet |
+| Navigation | ✅ Done | `HomeShell` dengan menu **role-aware** (ability dari `/auth/me`); 5 tab |
+| Biometric lock | ✅ Done (Fase 1) | `local_auth` + preferensi di secure storage + `BiometricGateScreen` |
+| Attendance (Clock In/Out) | ✅ Done (Fase 2) | `attendanceController` (`AsyncNotifier`), model `Attendance`, `AttendanceRepository`, layar check-in/out + ringkasan bulan; backend attendances kini `mutable` + self-service |
+| Testing | ✅ Auth + Attendance covered | 11 widget test (auth + role-aware menu + clock-in/out, offline, gagal muat); other features pending |
 | API layer | ✅ Done | `dioProvider` + `AuthInterceptor` (Bearer, 401 cleanup) + `ApiException` mapping |
 | Configuration | ✅ Done | `API_BASE_URL` via `--dart-define`, default `localhost:9100/api/v1` |
 
@@ -138,7 +140,9 @@ real data; widget tests for failed/successful login (mocked Dio); role-aware men
 
 **Goal:** employees record their presence from their phone.
 
-- **Backend**: enable `mutable` `attendances` (`employee_id` taken from the token, not the body).
+- **Backend** ✅: `attendances` kini `mutable` + `self_service` (ability `view_my_attendance` /
+  `manage_my_attendance` untuk EMPLOYEE); `employee_id` diambil dari token, bukan body; duplikat
+  tanggal ditolak (422); indeks/show di-scope ke record sendiri kecuali HR (`view_attendance`).
 - The Attendance screen shows a **Clock In / Clock Out** button (date & check time).
 - One-month history (list) + today's summary (total hours, status).
 - Validation: one record per day; prevent double clock-in via the backend response.
