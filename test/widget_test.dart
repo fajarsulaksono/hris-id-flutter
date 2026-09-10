@@ -77,12 +77,14 @@ class _FakeAttendanceRepository extends AttendanceRepository {
     List<Attendance>? records,
     this.listError,
     this.clockInError,
+    this.clockOutError,
   })  : records = records ?? [],
         super(Dio(BaseOptions()));
 
   List<Attendance> records;
   final ApiException? listError;
   final ApiException? clockInError;
+  final ApiException? clockOutError;
 
   @override
   Future<List<Attendance>> listForMonth(int year, int month) async {
@@ -118,6 +120,11 @@ class _FakeAttendanceRepository extends AttendanceRepository {
 
   @override
   Future<Attendance> clockOut(Attendance attendance, {required String time}) async {
+    final error = clockOutError;
+    if (error != null) {
+      throw error;
+    }
+
     final updated = Attendance(
       id: attendance.id,
       employeeId: attendance.employeeId,
@@ -373,6 +380,33 @@ _buildApp(
 
     expect(find.text('Tidak dapat terhubung ke server.'), findsOneWidget);
     expect(find.text('Absen Masuk'), findsOneWidget);
+  });
+
+  testWidgets('absensi: clock-out ditolak server menampilkan snackbar dan tetap di hari itu', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        repository: _FakeAuthRepository(
+          loginResult: AuthResult(token: 'token-123', user: buildUser()),
+        ),
+        attendanceRepository: _FakeAttendanceRepository(
+          clockOutError: const ApiException('Check-out sudah dicatat.'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await submitLogin(tester, 'budi', 'secret');
+    await tester.tap(find.text('Absensi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Absen Masuk'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Absen Pulang'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Check-out sudah dicatat.'), findsOneWidget);
+    expect(find.text('Absen Pulang'), findsOneWidget);
   });
 
   testWidgets('absensi: gagal memuat menampilkan notice dan tombol coba lagi', (tester) async {

@@ -181,6 +181,12 @@ class _TodayCard extends StatelessWidget {
                   _TimeRow(label: 'Pulang', time: today!.checkOut),
                 ],
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Lama bekerja: ${_workDuration(today!.checkIn, today!.checkOut)}',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: scheme.primary),
+              ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -327,6 +333,60 @@ String _displayTime(String? time) {
   }
 
   return time.length >= 5 ? time.substring(0, 5) : time;
+}
+
+String _workDuration(String? checkIn, String? checkOut) {
+  final duration = _minutesBetween(checkIn, checkOut);
+
+  if (duration == null) {
+    return '-';
+  }
+
+  final hours = duration ~/ 60;
+  final minutes = duration % 60;
+
+  if (hours == 0) {
+    return '$minutes menit';
+  }
+
+  return '$hours jam $minutes menit';
+}
+
+int? _minutesBetween(String? checkIn, String? checkOut) {
+  int? toMinutes(String? time) {
+    if (time == null || time.isEmpty) {
+      return null;
+    }
+
+    final parts = time.split(':');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    final hours = int.tryParse(parts[0]);
+    final minutes = int.tryParse(parts[1]);
+
+    if (hours == null || minutes == null) {
+      return null;
+    }
+
+    return hours * 60 + minutes;
+  }
+
+  final start = toMinutes(checkIn);
+  final end = toMinutes(checkOut);
+
+  if (start == null || end == null) {
+    return null;
+  }
+
+  var total = end - start;
+
+  if (total < 0) {
+    total += 24 * 60;
+  }
+
+  return total;
 }
 
 String _formatDate(DateTime date) =>
